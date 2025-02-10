@@ -69,7 +69,7 @@ def create_entry():
 	data = request.get_json()
 
 	if data.name in map(lambda c_ent: c_ent.name, cookbook):
-		'entry names must be unique', 400
+		return 'entry names must be unique', 400
 
 	if data.type == "recipe":
 		items = []
@@ -92,9 +92,6 @@ def create_entry():
 		cookbook.append(ing)
 	else:
 		return 'type must be recipe or ingredient', 400
-	
-
-	
 
 
 	return 'success', 200
@@ -104,9 +101,57 @@ def create_entry():
 # Endpoint that returns a summary of a recipe that corresponds to a query name
 @app.route('/summary', methods=['GET'])
 def summary():
-	# TODO: implement me
-	return 'not implemented', 500
+	
+	data = request.get_json()
 
+	pred = lambda c_ent: c_ent.name == data.name
+
+	recipe = next((c_ent for c_ent in cookbook if pred(c_ent)), None)
+	
+	if recipe is None:
+		return 'A recipe with the corresponding name cannot be found.', 400
+	
+	if recipe is not Recipe:
+		return 'The searched name is NOT a recipe name', 400
+	
+	ings = []
+	cook_time = 0
+	get_ingredients(recipe.name, ings, cook_time, 0)
+
+	if ings is None:
+		return 'The rceipe contains recipes or ingredients that aren\'t in the cookbook.', 400
+
+	return jsonify({
+		"name": data.name,
+		"cookTime": cook_time,
+		"ingredients": ings
+	})
+
+def get_ingredients(curr_ing, ings, cook_time, quantity):
+	# Passing in quantity for when Required_Item is passed through and the ingredient
+	# entry is found
+
+	if ings is None:
+		return
+
+	pred = lambda c_ent: c_ent.name == curr_ing
+
+	c_ent = next((c_ent for c_ent in cookbook if pred(c_ent)), None)
+
+	if c_ent is Ingredient:
+		ings.append(jsonify({
+			"name": c_ent.name,
+			"quantity": quantity
+		}))
+		cook_time += c_ent.cook_time
+	elif c_ent is Recipe:
+		for req in c_ent.required_items:
+			get_ingredients(req, ings, cook_time, req.quantity)
+	else:
+		ings = None
+
+	return
+	
 
 # =============================================================================
 # ==== DO NOT TOUCH ===========================================================
